@@ -66,6 +66,7 @@ class Parser:
 		0xB3 : ([_readInt2, _readInt2], 'move_rel'),
 		0x35 : ([_readInt2], 'move_rel_hor'),
 		0x00 : ([_readInt2], 'move_rel_vert'),
+		0xB5 : ([_readInt2], 'B5'),
 		}
 
 	E1_table = {
@@ -82,9 +83,13 @@ class Parser:
 	settings_table = {
 		0x75BA : ([_readInt1], 'enable_feature'),
 		0x753C : ([_readInt1], '753C'),
+		0xF33A : ([_readInt1], 'F33A'),
 		0xF33C : ([_readInt5], 'speed'),
+		0x813A : ([_readUInt2], '813A'),
 		0x81BA : ([_readUInt2], 'corner_power_1'),
+		0x812C : ([_readInt5], '812C'),
 		0x813C : ([_readUInt2], 'max_power_1'),
+		0xFF3A : ([_readUInt2], 'FF3A'),
 		0xFFBA : ([_readUInt2], 'corner_power_2'),
 		0xFF3C : ([_readUInt2], 'max_power_2'),
 		0x812C : ([_readInt5], 'laser_on_delay'),
