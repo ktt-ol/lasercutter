@@ -3,81 +3,151 @@ import re, sys
 from decoder import *
 from gui import *
 
-data = bytearray(open(sys.argv[1], 'r+b').read())
+class Parser:
 
-print "File Length:", len(data)
-print
+	def __init__(self, filename):
+		self.filename = filename
 
-if len(data) < 0x8b + 12:
-	print "File Truncated!"
-	sys.exit(1)
+	def _readByte(self):
+		self.pos += 1
+		return self.data[self.pos-1]
 
-start = 0x8b
+	def _readInt5(self):
+		self.pos += 5
+		return decodeFoo(self.data[self.pos-5:self.pos]) / 1000.0;
 
-def parse_settings(data, pos):
-	settings = {}
-	settings["enable_laser_head_1"] = data[pos+7]
-	settings["enable_laser_head_2"] = data[pos+10]
-	settings["speed"] = decodeFoo([data[pos+22], data[pos+23], data[pos+24], data[pos+25], data[pos+26]]) / 1000.0
-	settings["corner_power_1"] = decodeFoo([data[pos+29], data[pos+30]])
-	settings["max_power_1"] = decodeFoo([data[pos+33], data[pos+34]])
-	settings["corner_power_2"] = decodeFoo([data[pos+27], data[pos+38]])
-	settings["max_power_2"] = decodeFoo([data[pos+41], data[pos+42]])
-	settings["laser_on_delay"] = decodeFoo([data[pos+46], data[pos+47], data[pos+48], data[pos+49]])
-	return settings
+	def _readInt2(self):
+		self.pos += 2
+		return decodeFoo(self.data[self.pos-2:self.pos]) / 1000.0;
 
-print parse_settings(data, 0x5c-7)
+	def _readInt1(self):
+		self.pos += 1
+		return decodeFoo(self.data[self.pos-1:self.pos]);
 
-while True:
+	def _readUInt2(self):
+		self.pos += 2
+		return decodeFoo(self.data[self.pos-2:self.pos], signed=False) / 1000.0;
+
+
+	def _readSettings2(self):
+		x3A, xAB = self._readByte(), self._readByte()
+		print "0x3A? : 0x%2x 0xAB? : 0x%2x" % (x3A, xAB)
+		x3A, xAB = self._readByte(), self._readByte()
+		print "0x3A? : 0x%2x 0xAB? : 0x%2x" % (x3A, xAB)
+		x, y, z = self._readInt5(), self._readInt5(), self._readInt5()
+		print "x, y, z:", x, y, z
+		self._readSettings()
+
+	def _readSettings(self):
+		if self.data[self.pos] == 0xF1:
+			print "End of File"
+			#draw()
+			sys.exit(0)
+		while True:
+			cmd = (self._readByte() << 8) | self._readByte()
+			if cmd in self.settings_table:
+				params, name = self.settings_table[cmd]
+				args = [param(self) for param in params]
+				print name, args
+				if name == '81AC':
+					break
+			else:
+				print "Unknown Setting: 0x%4x" % cmd
+
+
+
+	parse_table = {
+		0x63 : ([_readByte,_readByte,_readByte], 'MAGIC!!!!'),
+		0x33 : ([_readInt5, _readInt5], 'move_to'),
+		0x13 : ([_readInt5, _readInt5], 'line_to'),
+		0x93 : ([_readInt2, _readInt2], 'line_rel'),
+		0x95 : ([_readInt2], 'line_rel_vert'),
+		0x15 : ([_readInt2], 'line_rel_hor'),
+		0xB3 : ([_readInt2, _readInt2], 'move_rel'),
+		0x35 : ([_readInt2], 'move_rel_hor'),
+		0x00 : ([_readInt2], 'move_rel_vert'),
+		}
+
+	E1_table = {
+		0xB2 : ([_readInt5, _readInt5], 'B2'),
+		0xBC : ([_readInt5, _readInt5], 'BC'),
+		0xC0 : ([_readInt5, _readInt5], 'C0'),
+		0x40 : ([_readInt5, _readInt5], '40'),
+		0x2A : ([_readInt5], '2A'),
+		0xAA : ([_readInt5], 'AA'),
+		0x3E : ([_readSettings2], 'settings'), # at beginning
+		0x3A : ([_readSettings], 'settings'), # between layers/end
+		}
+
+	settings_table = {
+		0x75BA : ([_readInt1], 'enable_feature'),
+		0x753C : ([_readInt1], '753C'),
+		0xF33C : ([_readInt5], 'speed'),
+		0x81BA : ([_readUInt2], 'corner_power_1'),
+		0x813C : ([_readUInt2], 'max_power_1'),
+		0xFFBA : ([_readUInt2], 'corner_power_2'),
+		0xFF3C : ([_readUInt2], 'max_power_2'),
+		0x812C : ([_readInt5], 'laser_on_delay'),
+		0x81AC : ([_readInt2], '81AC'),
+		}
+
+	def parse(self):
+		self.data = bytearray(open(sys.argv[1], 'r+b').read())
+		print "File Length:", len(self.data)
+		print
+
+		if len(self.data) < 0x8b + 12:
+			print "File Truncated!"
+			sys.exit(1)
+
+		self.pos = 0
+
+		while True:
+			cmd = self._readByte()
+			if cmd in self.parse_table:
+				params, name = self.parse_table[cmd]
+				args = [param(self) for param in params]
+				print name, args
+				#self.getattr(name)(*args)
+			elif cmd == 0xE1:
+				subcmd = self._readByte()
+				if subcmd in self.E1_table:
+					params, name = self.E1_table[subcmd]
+					args = [param(self) for param in params]
+					print name, args
+				else:
+					print "WTF? E1 %2X" % subcmd
+			else:
+				print "Unknown byte found: 0x%02X" % cmd
+				print "Position: 0x%02X" % (self.pos -1)
+				sys.exit(1)
+
+"""
 	if data[start] == 0x33:
-		x = decodeFoo([data[start+1], data[start+2], data[start+3], data[start+4], data[start+5]]) / 1000.0;
-		y = decodeFoo([data[start+6], data[start+7], data[start+8], data[start+9], data[start+10]]) / 1000.0;
 		print "Found line entry point:", x, y
 		move_to(x, y)
-		start += 11
 	elif data[start] == 0x13:
-		x = decodeFoo([data[start+1], data[start+2], data[start+3], data[start+4], data[start+5]]) / 1000.0;
-		y = decodeFoo([data[start+6], data[start+7], data[start+8], data[start+9], data[start+10]]) / 1000.0;
 		print "Found line continuation point:", x, y
 		line_to(x, y)
-		start += 11
 	elif data[start] == 0x93:
-		x = decodeFoo([data[start+1], data[start+2]]) / 1000.0
-		y = decodeFoo([data[start+3], data[start+4]]) / 1000.0
 		print "relative line:", x, y
 		relative_line_to(x, y)
-		start += 5
 	elif data[start] == 0x95:
-		y = decodeFoo([data[start+1], data[start+2]]) / 1000.0
 		print "relative Y line:", y
 		relative_line_to(inc_y=y)
-		start += 3
 	elif data[start] == 0x15:
-		x = decodeFoo([data[start+1], data[start+2]]) / 1000.0
 		print "relative X line:", x
 		relative_line_to(inc_x=x)
-		start += 3
 	elif data[start] == 0xB3:
-		x = decodeFoo([data[start+1], data[start+2]]) / 1000.0
-		y = decodeFoo([data[start+3], data[start+4]]) / 1000.0
 		print "relative move:", x, y
 		relative_move_to(x,y)
-		start += 5
 	elif data[start] == 0x35:
-		x = decodeFoo([data[start+1], data[start+2]]) / 1000.0
 		print "relative X move:", x
 		relative_move_to(inc_x=x)
-		start += 3
 	elif data[start] == 0x00:
-		x = decodeFoo([data[start+1], data[start+2]]) / 1000.0
 		print "relative Y move:", x
 		relative_move_to(inc_y=y)
-		start += 3
-	elif data[start] == 0xE1 and data[start+1] == 0x3A and data[start+2] == 0xF1:
-		print "End of File"
-		draw()
-		sys.exit(0)
-	else:
-		print "Unknown byte found: 0x%02X" % data[start]
-		print "Position: 0x%02X" % start
-		sys.exit(1)
+"""
+
+p = Parser(sys.argv[1])
+p.parse()
