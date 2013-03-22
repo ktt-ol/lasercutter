@@ -27,6 +27,7 @@ class GraphicalOutput:
 		self.ctx.move_to(x, y)
 
 	def command(self, name, params):
+		print "%s:" % name, ', '.join((str(i) for i in params))
 		method = getattr(self, name, None)
 		if method:
 			method(*params)
