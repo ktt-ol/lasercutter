@@ -63,12 +63,8 @@ class Parser:
 		while True:
 			cmd = self._readByte()
 			if cmd == 0xF1:
-				print "End of File"
-				#draw()
-				print self.f.tell(), repr(self.f.read())
-				self.f.seek(0,2)
-				print self.f.tell()
-				sys.exit(0)
+				self.cb("end_of_file", [])
+				return
 			cmd = (cmd << 8) | self._readByte()
 			if cmd in self.settings_table:
 				params, name = self.settings_table[cmd]
@@ -128,13 +124,12 @@ class Parser:
 		l = self.f.tell()
 		self.f.seek(0) # back to the beginning
 		print "File Length:", l
-		print
 
 		if l < 0x8b + 12:
 			print "File Truncated!"
 			sys.exit(1)
 
-		while True:
+		while self.f.tell() < l:
 			cmd = self._readByte()
 			if cmd in self.parse_table:
 				params, name = self.parse_table[cmd]
@@ -158,32 +153,6 @@ class Parser:
 				print "Position: 0x%04X" % (self.f.tell()-1)
 				sys.exit(1)
 
-"""
-	if data[start] == 0x33:
-		print "Found line entry point:", x, y
-		move_to(x, y)
-	elif data[start] == 0x13:
-		print "Found line continuation point:", x, y
-		line_to(x, y)
-	elif data[start] == 0x93:
-		print "relative line:", x, y
-		relative_line_to(x, y)
-	elif data[start] == 0x95:
-		print "relative Y line:", y
-		relative_line_to(inc_y=y)
-	elif data[start] == 0x15:
-		print "relative X line:", x
-		relative_line_to(inc_x=x)
-	elif data[start] == 0xB3:
-		print "relative move:", x, y
-		relative_move_to(x,y)
-	elif data[start] == 0x35:
-		print "relative X move:", x
-		relative_move_to(inc_x=x)
-	elif data[start] == 0x00:
-		print "relative Y move:", x
-		relative_move_to(inc_y=y)
-"""
-
-p = Parser(sys.argv[1])
+out = GraphicalOutput(1024, 1024)
+p = Parser(sys.argv[1], callback=out.command)
 p.parse()
