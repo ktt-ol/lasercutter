@@ -179,6 +179,6 @@ class Parser:
 				print "Position: 0x%04X" % (self.f.tell()-1)
 				sys.exit(1)
 
-out = GraphicalOutput(1024, 1024)
+out = GraphicalOutput()
 p = Parser(sys.argv[1], callback=out.command)
 p.parse()
