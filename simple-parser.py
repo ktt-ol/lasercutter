@@ -79,14 +79,6 @@ class Parser:
 	def _readByte(self):
 		return ord(self.f.read(1))
 
-	def _readSettings2(self):
-		self.cb("global_setting_foo1", [Int2.read(self.f)])
-		self.cb("global_setting_foo2", [Int2.read(self.f)])
-		self.cb('global_setting_x', [Int5.read(self.f)])
-		self.cb('global_setting_y', [Int5.read(self.f)])
-		self.cb('global_setting_z', [Int5.read(self.f)])
-		return self._readSettings()
-
 	def _readSettings(self):
 		while True:
 			cmd = self._readByte()
@@ -129,8 +121,8 @@ class Parser:
 		0x40 : ([Int5, Int5], '_40'),
 		0x2A : ([Int5], '_2A'),
 		0xAA : ([Int5], '_AA'),
-		0x3E : (_readSettings2, 'gobal_settings'), # at beginning
-		0x3A : (_readSettings, 'settings'), # between layers/end
+		0x3E : ([Int2, Int2, Int5, Int5, Int5], 'gobal_settings'),
+		0x3A : ([], 'settings'), # between layers / eof marker
 		}
 
 	settings_table = {
@@ -171,12 +163,11 @@ class Parser:
 				subcmd = self._readByte()
 				if subcmd in self.E1_table:
 					params, name = self.E1_table[subcmd]
-					if isinstance(params, list):
-						args = [paramtype.read(self.f)
-							for paramtype in params]
-						self.cb(name, args)
-					else:
-						params(self)
+					args = [paramtype.read(self.f)
+						for paramtype in params]
+					self.cb(name, args)
+					if subcmd in (0x3E, 0x3A):
+						self._readSettings()
 				else:
 					print "WTF? E1 %2X" % subcmd
 			else:
