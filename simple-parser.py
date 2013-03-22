@@ -112,6 +112,10 @@ class Parser:
 		0x35 : ([Int2X], 'move_rel_hor'),
 		0x00 : ([Int2X], 'move_rel_vert'),
 		0xB5 : ([Int2], '_B5'),
+		0x01 : ([Percent], '_01'),
+		0x73 : ([Percent], '_73'),
+		0x77 : ([Percent], '_77'),
+		0xF7 : ([Percent], '_F7'),
 		}
 
 	E1_table = {
