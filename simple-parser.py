@@ -4,10 +4,18 @@ from decoder import *
 from gui import *
 
 
+class ParamType:
+	def __init__(self):
+		raise NotImplementedError, "Do not instanciate!"
+	@classmethod
+	def read(cls, file_):
+		return 0
+	@classmethod
+	def write(cls, file_, val):
+		pass
+
 def _buildIntClass(name, length, scale=1, signed=True):
-	class cls:
-		def __init__(self):
-			raise NotImplementedError
+	class cls(ParamType):
 		@classmethod
 		def read(cls, file_):
 			return decodeFoo(bytearray(file_.read(length)), signed) / scale
@@ -16,7 +24,7 @@ def _buildIntClass(name, length, scale=1, signed=True):
 			if not signed and val < 0:
 				raise ValueError, "negative Value"
 			file_.write(encodeFoo(val*scale, length, signed))
-	#cls.__name__ = name
+	cls.__name__ = name
 	return cls
 
 
@@ -28,9 +36,7 @@ Int5 = _buildIntClass('Int5', 5, 1000.0)
 UInt5 = _buildIntClass('UInt5', 5, 1000.0, signed=False)
 Percent = _buildIntClass('Int2', 2, 163.84, signed=False) # 163.84 = (2**(2*7) / 100.0)
 
-class Byte:
-	def __init__(self):
-		raise NotImplementedError
+class Byte(ParamType):
 	@classmethod
 	def read(cls, file_):
 		return ord(file_.read(1))
@@ -39,6 +45,26 @@ class Byte:
 		if not (0 <= val < 256):
 			raise ValueError, "negative Value"
 		file_.write(chr(val))
+
+class Feature(Byte):
+	feature_table = {
+		0x2E : 'enable_laser_head_1',
+		0xAE : 'disable_laser_head_1',
+		0x30 : 'enable_laser_head_2',
+		0xB0 : 'disable_laser_head_2',
+	}
+
+	reverse_table = dict(((name, code) for code, name in feature_table.iteritems()))
+	@classmethod
+        def read(cls, file_):
+                val = Byte.read(file_)
+		return cls.feature_table.get(val, "unknown_feature_%02x" % val)
+	@classmethod
+        def write(cls, file_, val):
+		result = cls.reverse_abe.get(val, None)
+		if result is None:
+			result = int(val[-2:], 16)
+		Byte.write(file_, result)
 
 def print_callback(name, params):
 	print "%s:" % name, ', '.join((str(i) for i in params))
@@ -82,13 +108,6 @@ class Parser:
 				print "Unknown Setting: 0x%4x" % cmd
 		return []
 
-	def _readFeature(self):
-		feature = self._readByte()
-		if feature in self.feature_table:
-			return [self.feature_table[feature]]
-		else:
-			return ["unknown_feature_%02x" % feature]
-
 	parse_table = {
 		0x63 : ([Byte,Byte,Byte], 'magic'),
 		0x33 : ([Int5, Int5], 'move_to'),
@@ -114,7 +133,7 @@ class Parser:
 		}
 
 	settings_table = {
-		0x75BA : (_readFeature, 'enable_feature'),
+		0x75BA : ([Feature], 'enable_feature'),
 		0x753C : ([Int1], '_753C'),
 		0xF33A : ([Int1], '_F33A'),
 		0xF33C : ([Int5], 'speed'),
@@ -128,13 +147,6 @@ class Parser:
 		0x812C : ([Int5], 'laser_on_delay'),
 		0x81AC : ([Int2], '_81AC'),
 		}
-
-	feature_table = {
-		0x2E : 'enable_laser_head_1',
-		0xAE : 'disable_laser_head_1',
-		0x30 : 'enable_laser_head_2',
-		0xB0 : 'disable_laser_head_2',
-	}
 
 	def parse(self):
 		self.f = open(sys.argv[1], 'r+b')
