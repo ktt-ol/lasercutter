@@ -23,6 +23,7 @@ def _buildIntClass(name, length, scale=1, signed=True):
 Int1 = _buildIntClass('Int1', 1)
 UInt1 = _buildIntClass('UInt1', 1, signed=False)
 Int2 = _buildIntClass('Int1', 2)
+Int2X = _buildIntClass('Int1', 2, 1000.0)
 UInt2 = _buildIntClass('UInt1', 2, signed=False)
 Int5 = _buildIntClass('Int5', 5, 1000.0)
 UInt5 = _buildIntClass('UInt5', 5, 1000.0, signed=False)
@@ -93,12 +94,12 @@ class Parser:
 		0x63 : ([Byte,Byte,Byte], 'magic'),
 		0x33 : ([Int5, Int5], 'move_to'),
 		0x13 : ([Int5, Int5], 'line_to'),
-		0x93 : ([Int2, Int2], 'line_rel'),
-		0x95 : ([Int2], 'line_rel_vert'),
-		0x15 : ([Int2], 'line_rel_hor'),
-		0xB3 : ([Int2, Int2], 'move_rel'),
-		0x35 : ([Int2], 'move_rel_hor'),
-		0x00 : ([Int2], 'move_rel_vert'),
+		0x93 : ([Int2X, Int2X], 'line_rel'),
+		0x95 : ([Int2X], 'line_rel_vert'),
+		0x15 : ([Int2X], 'line_rel_hor'),
+		0xB3 : ([Int2X, Int2X], 'move_rel'),
+		0x35 : ([Int2X], 'move_rel_hor'),
+		0x00 : ([Int2X], 'move_rel_vert'),
 		0xB5 : ([Int2], '_B5'),
 		}
 
