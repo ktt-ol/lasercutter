@@ -21,11 +21,11 @@ def _buildIntClass(name, length, scale=1, signed=True):
 
 
 Int1 = _buildIntClass('Int1', 1)
-UInt1 = _buildIntClass('UInt1', 1, signed=True)
+UInt1 = _buildIntClass('UInt1', 1, signed=False)
 Int2 = _buildIntClass('Int1', 2)
-UInt2 = _buildIntClass('UInt1', 2, signed=True)
+UInt2 = _buildIntClass('UInt1', 2, signed=False)
 Int5 = _buildIntClass('Int5', 5, 1000.0)
-UInt5 = _buildIntClass('UInt5', 5, 1000.0, signed=True)
+UInt5 = _buildIntClass('UInt5', 5, 1000.0, signed=False)
 
 class Byte:
 	def __init__(self):
