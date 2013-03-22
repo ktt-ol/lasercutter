@@ -26,6 +26,7 @@ Int2 = _buildIntClass('Int1', 2)
 UInt2 = _buildIntClass('UInt1', 2, signed=False)
 Int5 = _buildIntClass('Int5', 5, 1000.0)
 UInt5 = _buildIntClass('UInt5', 5, 1000.0, signed=False)
+Percent = _buildIntClass('Int2', 2, 163.84, signed=False) # 163.84 = (2**(2*7) / 100.0)
 
 class Byte:
 	def __init__(self):
@@ -118,12 +119,12 @@ class Parser:
 		0xF33A : ([Int1], '_F33A'),
 		0xF33C : ([Int5], 'speed'),
 		0x813A : ([UInt2], '_813A'),
-		0x81BA : ([UInt2], 'corner_power_1'),
+		0x81BA : ([Percent], 'corner_power_1'),
 		0x812C : ([Int5], '_812C'),
-		0x813C : ([UInt2], 'max_power_1'),
+		0x813C : ([Percent], 'max_power_1'),
 		0xFF3A : ([UInt2], '_FF3A'),
-		0xFFBA : ([UInt2], 'corner_power_2'),
-		0xFF3C : ([UInt2], 'max_power_2'),
+		0xFFBA : ([Percent], 'corner_power_2'),
+		0xFF3C : ([Percent], 'max_power_2'),
 		0x812C : ([Int5], 'laser_on_delay'),
 		0x81AC : ([Int2], '_81AC'),
 		}
