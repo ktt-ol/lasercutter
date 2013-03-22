@@ -217,7 +217,7 @@ class Writer:
 		else:
 			print "Unexpected command name:", name
 
-#out = GraphicalOutput()
+#out = GraphicalOutput(1024, 1024)
 out = Writer("output.ud")
 p = Parser(sys.argv[1], callback=out.command)
 p.parse()
