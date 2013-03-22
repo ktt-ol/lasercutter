@@ -102,9 +102,9 @@ class Parser:
 		}
 
 	E1_table = {
-		0xB2 : ([Int5, Int5], '_B2'),
-		0xBC : ([Int5, Int5], '_BC'),
-		0xC0 : ([Int5, Int5], '_C0'),
+		0xB2 : ([Int5, Int5], 'move_origin'),
+		0xBC : ([Int5, Int5], 'bounding_box_top_left'),
+		0xC0 : ([Int5, Int5], 'bounding_box_bottom_right'),
 		0x40 : ([Int5, Int5], '_40'),
 		0x2A : ([Int5], '_2A'),
 		0xAA : ([Int5], '_AA'),
