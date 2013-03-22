@@ -39,21 +39,24 @@ class Byte:
 			raise ValueError, "negative Value"
 		file_.write(chr(val))
 
+def print_callback(name, params):
+	print "%s:" % name, ', '.join((str(i) for i in params))
+
 class Parser:
 
-	def __init__(self, filename):
+	def __init__(self, filename, callback=print_callback):
 		self.filename = filename
+		self.cb = callback
 
 	def _readByte(self):
 		return ord(self.f.read(1))
 
 	def _readSettings2(self):
-		x3A, xAB = self._readByte(), self._readByte()
-		print "0x3A? : 0x%2x 0xAB? : 0x%2x" % (x3A, xAB)
-		x3A, xAB = self._readByte(), self._readByte()
-		print "0x3A? : 0x%2x 0xAB? : 0x%2x" % (x3A, xAB)
-		x, y, z = Int5.read(self.f), Int5.read(self.f), Int5.read(self.f)
-		print "x, y, z:", x, y, z
+		self.cb("setting_foo1", [Int2.read(self.f)])
+		self.cb("setting_foo2", [Int2.read(self.f)])
+		self.cb('setting_x', [Int5.read(self.f)])
+		self.cb('setting_y', [Int5.read(self.f)])
+		self.cb('setting_z?', [Int5.read(self.f)])
 		self._readSettings()
 
 	def _readSettings(self):
@@ -71,7 +74,7 @@ class Parser:
 				params, name = self.settings_table[cmd]
 				args = [paramtype.read(self.f)
 					for paramtype in params]
-				print name, args
+				self.cb(name, args)
 				if name == '81AC':
 					break
 			else:
@@ -137,8 +140,7 @@ class Parser:
 				params, name = self.parse_table[cmd]
 				args = [paramtype.read(self.f)
 					for paramtype in params]
-				print name, args
-				#self.getattr(name)(*args)
+				self.cb(name, args)
 			elif cmd == 0xE1:
 				subcmd = self._readByte()
 				if subcmd in self.E1_table:
@@ -146,7 +148,7 @@ class Parser:
 					if isinstance(params, list):
 						args = [paramtype.read(self.f)
 							for paramtype in params]
-						print name, args
+						self.cb(name, args)
 					else:
 						params(self)
 				else:
