@@ -52,12 +52,12 @@ class Parser:
 		return ord(self.f.read(1))
 
 	def _readSettings2(self):
-		self.cb("setting_foo1", [Int2.read(self.f)])
-		self.cb("setting_foo2", [Int2.read(self.f)])
-		self.cb('setting_x', [Int5.read(self.f)])
-		self.cb('setting_y', [Int5.read(self.f)])
-		self.cb('setting_z?', [Int5.read(self.f)])
-		self._readSettings()
+		self.cb("global_setting_foo1", [Int2.read(self.f)])
+		self.cb("global_setting_foo2", [Int2.read(self.f)])
+		self.cb('global_setting_x', [Int5.read(self.f)])
+		self.cb('global_setting_y', [Int5.read(self.f)])
+		self.cb('global_setting_z', [Int5.read(self.f)])
+		return self._readSettings()
 
 	def _readSettings(self):
 		while True:
@@ -71,15 +71,16 @@ class Parser:
 				args = [paramtype.read(self.f)
 					for paramtype in params]
 				self.cb(name, args)
-				if name == '81AC':
+				if name == '_81AC':
 					break
 			else:
 				print "Unknown Setting: 0x%4x" % cmd
+		return []
 
 
 
 	parse_table = {
-		0x63 : ([Byte,Byte,Byte], 'MAGIC!!!!'),
+		0x63 : ([Byte,Byte,Byte], 'magic'),
 		0x33 : ([Int5, Int5], 'move_to'),
 		0x13 : ([Int5, Int5], 'line_to'),
 		0x93 : ([Int2, Int2], 'line_rel'),
@@ -88,34 +89,34 @@ class Parser:
 		0xB3 : ([Int2, Int2], 'move_rel'),
 		0x35 : ([Int2], 'move_rel_hor'),
 		0x00 : ([Int2], 'move_rel_vert'),
-		0xB5 : ([Int2], 'B5'),
+		0xB5 : ([Int2], '_B5'),
 		}
 
 	E1_table = {
-		0xB2 : ([Int5, Int5], 'B2'),
-		0xBC : ([Int5, Int5], 'BC'),
-		0xC0 : ([Int5, Int5], 'C0'),
-		0x40 : ([Int5, Int5], '40'),
-		0x2A : ([Int5], '2A'),
-		0xAA : ([Int5], 'AA'),
-		0x3E : (_readSettings2, 'settings'), # at beginning
+		0xB2 : ([Int5, Int5], '_B2'),
+		0xBC : ([Int5, Int5], '_BC'),
+		0xC0 : ([Int5, Int5], '_C0'),
+		0x40 : ([Int5, Int5], '_40'),
+		0x2A : ([Int5], '_2A'),
+		0xAA : ([Int5], '_AA'),
+		0x3E : (_readSettings2, 'gobal_settings'), # at beginning
 		0x3A : (_readSettings, 'settings'), # between layers/end
 		}
 
 	settings_table = {
 		0x75BA : ([Int1], 'enable_feature'),
-		0x753C : ([Int1], '753C'),
-		0xF33A : ([Int1], 'F33A'),
+		0x753C : ([Int1], '_753C'),
+		0xF33A : ([Int1], '_F33A'),
 		0xF33C : ([Int5], 'speed'),
-		0x813A : ([UInt2], '813A'),
+		0x813A : ([UInt2], '_813A'),
 		0x81BA : ([UInt2], 'corner_power_1'),
-		0x812C : ([Int5], '812C'),
+		0x812C : ([Int5], '_812C'),
 		0x813C : ([UInt2], 'max_power_1'),
-		0xFF3A : ([UInt2], 'FF3A'),
+		0xFF3A : ([UInt2], '_FF3A'),
 		0xFFBA : ([UInt2], 'corner_power_2'),
 		0xFF3C : ([UInt2], 'max_power_2'),
 		0x812C : ([Int5], 'laser_on_delay'),
-		0x81AC : ([Int2], '81AC'),
+		0x81AC : ([Int2], '_81AC'),
 		}
 
 	def parse(self):
