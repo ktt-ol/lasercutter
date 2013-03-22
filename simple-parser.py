@@ -3,51 +3,74 @@ import re, sys
 from decoder import *
 from gui import *
 
+
+def _buildIntClass(name, length, scale=1, signed=True):
+	class cls:
+		def __init__(self):
+			raise NotImplementedError
+		@classmethod
+		def read(cls, file_):
+			return decodeFoo(bytearray(file_.read(length)), signed) / scale
+		@classmethod
+		def write(cls, file_, val):
+			if not signed and val < 0:
+				raise ValueError, "negative Value"
+			file_.write(encodeFoo(val*scale, length, signed))
+	#cls.__name__ = name
+	return cls
+
+
+Int1 = _buildIntClass('Int1', 1)
+UInt1 = _buildIntClass('UInt1', 1, signed=True)
+Int2 = _buildIntClass('Int1', 2)
+UInt2 = _buildIntClass('UInt1', 2, signed=True)
+Int5 = _buildIntClass('Int5', 5, 1000.0)
+UInt5 = _buildIntClass('UInt5', 5, 1000.0, signed=True)
+
+class Byte:
+	def __init__(self):
+		raise NotImplementedError
+	@classmethod
+	def read(cls, file_):
+		return ord(file_.read(1))
+	@classmethod
+	def write(cls, file_, val):
+		if not (0 <= val < 256):
+			raise ValueError, "negative Value"
+		file_.write(chr(val))
+
 class Parser:
 
 	def __init__(self, filename):
 		self.filename = filename
 
 	def _readByte(self):
-		self.pos += 1
-		return self.data[self.pos-1]
-
-	def _readInt5(self):
-		self.pos += 5
-		return decodeFoo(self.data[self.pos-5:self.pos]) / 1000.0;
-
-	def _readInt2(self):
-		self.pos += 2
-		return decodeFoo(self.data[self.pos-2:self.pos]) / 1000.0;
-
-	def _readInt1(self):
-		self.pos += 1
-		return decodeFoo(self.data[self.pos-1:self.pos]);
-
-	def _readUInt2(self):
-		self.pos += 2
-		return decodeFoo(self.data[self.pos-2:self.pos], signed=False) / 1000.0;
-
+		return ord(self.f.read(1))
 
 	def _readSettings2(self):
 		x3A, xAB = self._readByte(), self._readByte()
 		print "0x3A? : 0x%2x 0xAB? : 0x%2x" % (x3A, xAB)
 		x3A, xAB = self._readByte(), self._readByte()
 		print "0x3A? : 0x%2x 0xAB? : 0x%2x" % (x3A, xAB)
-		x, y, z = self._readInt5(), self._readInt5(), self._readInt5()
+		x, y, z = Int5.read(self.f), Int5.read(self.f), Int5.read(self.f)
 		print "x, y, z:", x, y, z
 		self._readSettings()
 
 	def _readSettings(self):
-		if self.data[self.pos] == 0xF1:
-			print "End of File"
-			#draw()
-			sys.exit(0)
 		while True:
-			cmd = (self._readByte() << 8) | self._readByte()
+			cmd = self._readByte()
+			if cmd == 0xF1:
+				print "End of File"
+				#draw()
+				print self.f.tell(), repr(self.f.read())
+				self.f.seek(0,2)
+				print self.f.tell()
+				sys.exit(0)
+			cmd = (cmd << 8) | self._readByte()
 			if cmd in self.settings_table:
 				params, name = self.settings_table[cmd]
-				args = [param(self) for param in params]
+				args = [paramtype.read(self.f)
+					for paramtype in params]
 				print name, args
 				if name == '81AC':
 					break
@@ -57,74 +80,80 @@ class Parser:
 
 
 	parse_table = {
-		0x63 : ([_readByte,_readByte,_readByte], 'MAGIC!!!!'),
-		0x33 : ([_readInt5, _readInt5], 'move_to'),
-		0x13 : ([_readInt5, _readInt5], 'line_to'),
-		0x93 : ([_readInt2, _readInt2], 'line_rel'),
-		0x95 : ([_readInt2], 'line_rel_vert'),
-		0x15 : ([_readInt2], 'line_rel_hor'),
-		0xB3 : ([_readInt2, _readInt2], 'move_rel'),
-		0x35 : ([_readInt2], 'move_rel_hor'),
-		0x00 : ([_readInt2], 'move_rel_vert'),
-		0xB5 : ([_readInt2], 'B5'),
+		0x63 : ([Byte,Byte,Byte], 'MAGIC!!!!'),
+		0x33 : ([Int5, Int5], 'move_to'),
+		0x13 : ([Int5, Int5], 'line_to'),
+		0x93 : ([Int2, Int2], 'line_rel'),
+		0x95 : ([Int2], 'line_rel_vert'),
+		0x15 : ([Int2], 'line_rel_hor'),
+		0xB3 : ([Int2, Int2], 'move_rel'),
+		0x35 : ([Int2], 'move_rel_hor'),
+		0x00 : ([Int2], 'move_rel_vert'),
+		0xB5 : ([Int2], 'B5'),
 		}
 
 	E1_table = {
-		0xB2 : ([_readInt5, _readInt5], 'B2'),
-		0xBC : ([_readInt5, _readInt5], 'BC'),
-		0xC0 : ([_readInt5, _readInt5], 'C0'),
-		0x40 : ([_readInt5, _readInt5], '40'),
-		0x2A : ([_readInt5], '2A'),
-		0xAA : ([_readInt5], 'AA'),
-		0x3E : ([_readSettings2], 'settings'), # at beginning
-		0x3A : ([_readSettings], 'settings'), # between layers/end
+		0xB2 : ([Int5, Int5], 'B2'),
+		0xBC : ([Int5, Int5], 'BC'),
+		0xC0 : ([Int5, Int5], 'C0'),
+		0x40 : ([Int5, Int5], '40'),
+		0x2A : ([Int5], '2A'),
+		0xAA : ([Int5], 'AA'),
+		0x3E : (_readSettings2, 'settings'), # at beginning
+		0x3A : (_readSettings, 'settings'), # between layers/end
 		}
 
 	settings_table = {
-		0x75BA : ([_readInt1], 'enable_feature'),
-		0x753C : ([_readInt1], '753C'),
-		0xF33A : ([_readInt1], 'F33A'),
-		0xF33C : ([_readInt5], 'speed'),
-		0x813A : ([_readUInt2], '813A'),
-		0x81BA : ([_readUInt2], 'corner_power_1'),
-		0x812C : ([_readInt5], '812C'),
-		0x813C : ([_readUInt2], 'max_power_1'),
-		0xFF3A : ([_readUInt2], 'FF3A'),
-		0xFFBA : ([_readUInt2], 'corner_power_2'),
-		0xFF3C : ([_readUInt2], 'max_power_2'),
-		0x812C : ([_readInt5], 'laser_on_delay'),
-		0x81AC : ([_readInt2], '81AC'),
+		0x75BA : ([Int1], 'enable_feature'),
+		0x753C : ([Int1], '753C'),
+		0xF33A : ([Int1], 'F33A'),
+		0xF33C : ([Int5], 'speed'),
+		0x813A : ([UInt2], '813A'),
+		0x81BA : ([UInt2], 'corner_power_1'),
+		0x812C : ([Int5], '812C'),
+		0x813C : ([UInt2], 'max_power_1'),
+		0xFF3A : ([UInt2], 'FF3A'),
+		0xFFBA : ([UInt2], 'corner_power_2'),
+		0xFF3C : ([UInt2], 'max_power_2'),
+		0x812C : ([Int5], 'laser_on_delay'),
+		0x81AC : ([Int2], '81AC'),
 		}
 
 	def parse(self):
-		self.data = bytearray(open(sys.argv[1], 'r+b').read())
-		print "File Length:", len(self.data)
+		self.f = open(sys.argv[1], 'r+b')
+		self.f.seek(0, 2) # goto end
+		l = self.f.tell()
+		self.f.seek(0) # back to the beginning
+		print "File Length:", l
 		print
 
-		if len(self.data) < 0x8b + 12:
+		if l < 0x8b + 12:
 			print "File Truncated!"
 			sys.exit(1)
-
-		self.pos = 0
 
 		while True:
 			cmd = self._readByte()
 			if cmd in self.parse_table:
 				params, name = self.parse_table[cmd]
-				args = [param(self) for param in params]
+				args = [paramtype.read(self.f)
+					for paramtype in params]
 				print name, args
 				#self.getattr(name)(*args)
 			elif cmd == 0xE1:
 				subcmd = self._readByte()
 				if subcmd in self.E1_table:
 					params, name = self.E1_table[subcmd]
-					args = [param(self) for param in params]
-					print name, args
+					if isinstance(params, list):
+						args = [paramtype.read(self.f)
+							for paramtype in params]
+						print name, args
+					else:
+						params(self)
 				else:
 					print "WTF? E1 %2X" % subcmd
 			else:
 				print "Unknown byte found: 0x%02X" % cmd
-				print "Position: 0x%02X" % (self.pos -1)
+				print "Position: 0x%04X" % (self.f.tell()-1)
 				sys.exit(1)
 
 """
