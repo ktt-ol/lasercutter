@@ -48,11 +48,19 @@ def decodeFoo(bs, signed=True):
 		val = val - (1L << (len(bs)*7))
 	return val
 
-def encodeFoo(val):
-	val = long(round(val * 1000))
-	return [
-		bit2front(int2foo((val >> 21) & 0x7F)),
-		bit2front(int2foo((val >> 14) & 0x7F)),
-		bit2front(int2foo((val >> 7) & 0x7F)),
-		bit2front(int2foo((val & 0x7F)))
-		]
+def encodeFoo(val, length=1, signed=True):
+	val = long(val) # XXX fill leading Bits
+	if signed and val < 0:
+		val = (1 << (7*length)) + val
+	result = []
+	for i in range(length):
+		result.append(bit2front(int2foo(val & 0x7F)))
+		val = val >> 7
+	result.reverse()
+	return result
+
+
+if __name__ == "__main__":
+	for i in range(0, 1000, 13):
+		#print i, encodeFoo(i, 2), decodeFoo(encodeFoo(i,2))
+		print -i, encodeFoo(-i, 2), decodeFoo(encodeFoo(-i, 2))

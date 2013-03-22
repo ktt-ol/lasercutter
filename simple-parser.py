@@ -23,7 +23,8 @@ def _buildIntClass(name, length, scale=1, signed=True):
 		def write(cls, file_, val):
 			if not signed and val < 0:
 				raise ValueError, "negative Value"
-			file_.write(encodeFoo(val*scale, length, signed))
+			for b in encodeFoo(val*scale, length, signed):
+				file_.write(chr(b))
 	cls.__name__ = name
 	return cls
 
@@ -62,7 +63,7 @@ class Feature(Byte):
 		return cls.feature_table.get(val, "unknown_feature_%02x" % val)
 	@classmethod
         def write(cls, file_, val):
-		result = cls.reverse_abe.get(val, None)
+		result = cls.reverse_table.get(val, None)
 		if result is None:
 			result = int(val[-2:], 16)
 		Byte.write(file_, result)
@@ -101,7 +102,7 @@ class Parser:
 				print "Unknown Setting: 0x%4x" % cmd
 		return []
 
-	parse_table = {
+	command_table = {
 		0x63 : ([Byte,Byte,Byte], 'magic'),
 		0x33 : ([Int5, Int5], 'move_to'),
 		0x13 : ([Int5, Int5], 'line_to'),
@@ -116,6 +117,7 @@ class Parser:
 		0x73 : ([Percent], '_73'),
 		0x77 : ([Percent], '_77'),
 		0xF7 : ([Percent], '_F7'),
+		0xE1 : ([], 'xE1'),
 		}
 
 	E1_table = {
@@ -143,6 +145,7 @@ class Parser:
 		0xFF3C : ([Percent], 'max_power_2'),
 		0x812C : ([Int5], 'laser_on_delay'),
 		0x81AC : ([Int2], '_81AC'),
+		0xF1   : ([], 'end_of_file'),
 		}
 
 	def parse(self):
@@ -150,35 +153,71 @@ class Parser:
 		self.f.seek(0, 2) # goto end
 		l = self.f.tell()
 		self.f.seek(0) # back to the beginning
-		print "File Length:", l
-
-		if l < 0x8b + 12:
-			print "File Truncated!"
-			sys.exit(1)
 
 		while self.f.tell() < l:
 			cmd = self._readByte()
-			if cmd in self.parse_table:
-				params, name = self.parse_table[cmd]
+			if cmd in self.command_table:
+				params, name = self.command_table[cmd]
 				args = [paramtype.read(self.f)
 					for paramtype in params]
 				self.cb(name, args)
-			elif cmd == 0xE1:
-				subcmd = self._readByte()
-				if subcmd in self.E1_table:
-					params, name = self.E1_table[subcmd]
-					args = [paramtype.read(self.f)
-						for paramtype in params]
-					self.cb(name, args)
-					if subcmd in (0x3E, 0x3A):
-						self._readSettings()
-				else:
-					print "WTF? E1 %2X" % subcmd
+				if cmd == 0xE1:
+					subcmd = self._readByte()
+					if subcmd in self.E1_table:
+						params, name = self.E1_table[subcmd]
+						args = [paramtype.read(self.f)
+							for paramtype in params]
+						self.cb(name, args)
+						if subcmd in (0x3E, 0x3A):
+							self._readSettings()
+					else:
+						print "WTF? E1 %2X" % subcmd
 			else:
 				print "Unknown byte found: 0x%02X" % cmd
 				print "Position: 0x%04X" % (self.f.tell()-1)
 				sys.exit(1)
 
-out = GraphicalOutput()
+def _reverse_table(t):
+	result = {}
+	for code, (args, name) in t.iteritems():
+		result[name] = (args, code)
+	return result
+
+class Writer:
+	command_table = _reverse_table(Parser.command_table)
+	E1_table = _reverse_table(Parser.E1_table)
+	settings_table = _reverse_table(Parser.settings_table)
+
+	transitions = {
+		0xE1 : E1_table,
+		0x3E : settings_table,
+		0x3A : settings_table,
+		0x81AC : command_table
+		}
+
+	def __init__(self, filename):
+		self.f = open(filename, 'wb')
+		self.mode = self.command_table
+
+	def command(self, name, args):
+		if name in self.mode:
+			params, code = self.mode[name]
+			if len(args) != len(params):
+				print "Got %i params expected %i!" % (len(args), len(params))
+			if self.mode == self.settings_table and code != 0xF1:
+				self.f.write(chr(code>>8))
+			self.f.write(chr(code&0xFF))
+			for arg, paramtype in zip(args, params):
+				paramtype.write(self.f, arg)
+
+			if code in self.transitions:
+				self.mode = self.transitions[code]
+			elif self.mode is self.E1_table:
+				self.mode = self.command_table
+		else:
+			print "Unexpected command name:", name
+
+#out = GraphicalOutput()
+out = Writer("output.ud")
 p = Parser(sys.argv[1], callback=out.command)
 p.parse()
