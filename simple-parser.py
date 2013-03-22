@@ -68,16 +68,25 @@ class Parser:
 			cmd = (cmd << 8) | self._readByte()
 			if cmd in self.settings_table:
 				params, name = self.settings_table[cmd]
-				args = [paramtype.read(self.f)
-					for paramtype in params]
-				self.cb(name, args)
+				if isinstance(params, list):
+					args = [paramtype.read(self.f)
+						for paramtype in params]
+					self.cb(name, args)
+				else:
+					args = params(self)
+					self.cb(name, args)
 				if name == '_81AC':
 					break
 			else:
 				print "Unknown Setting: 0x%4x" % cmd
 		return []
 
-
+	def _readFeature(self):
+		feature = self._readByte()
+		if feature in self.feature_table:
+			return [self.feature_table[feature]]
+		else:
+			return ["unknown_feature_%02x" % feature]
 
 	parse_table = {
 		0x63 : ([Byte,Byte,Byte], 'magic'),
@@ -104,7 +113,7 @@ class Parser:
 		}
 
 	settings_table = {
-		0x75BA : ([Int1], 'enable_feature'),
+		0x75BA : (_readFeature, 'enable_feature'),
 		0x753C : ([Int1], '_753C'),
 		0xF33A : ([Int1], '_F33A'),
 		0xF33C : ([Int5], 'speed'),
@@ -118,6 +127,13 @@ class Parser:
 		0x812C : ([Int5], 'laser_on_delay'),
 		0x81AC : ([Int2], '_81AC'),
 		}
+
+	feature_table = {
+		0x2E : 'enable_laser_head_1',
+		0xAE : 'disable_laser_head_1',
+		0x30 : 'enable_laser_head_2',
+		0xB0 : 'disable_laser_head_2',
+	}
 
 	def parse(self):
 		self.f = open(sys.argv[1], 'r+b')
